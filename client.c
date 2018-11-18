@@ -38,12 +38,12 @@ int main()
   int conn; //This is the connection file descriptor that will be used to distinguish client connections.
   char message[100] = ""; //This array will store the messages that are sent by the serverer
   memset(message, '\0', 100);
-	char server_reply[2000];
+  char server_reply[2000];
   socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
 
   server.sin_family = AF_INET;
   server.sin_port = htons(8096);
-//
+  //
   inet_pton(AF_INET, "127.0.0.1", &server.sin_addr); //This binds the client to localhost
 
   if (connect(socketFileDescriptor, (struct sockaddr *)&server, sizeof(server))!=0) { //This connects the client to the serverer.
@@ -51,19 +51,18 @@ int main()
     exit(0);
   }
 
-      printf("Enter your name and a surname: ");
-      fgets(message, 100, stdin);
-      while (checkName(message) != 0 )
-        puts ("Enter your name, space and then surname");
+  do {
+    puts ("Enter your name, space and then surname");
+    fgets(message, 100, stdin);
+  } while (checkName(message) != 0 );
 
-      send(socketFileDescriptor, message, strlen(message), 0);
-      if( recv(socketFileDescriptor , server_reply , 2000 , 0) < 0)
-      {
-        puts("Your attendance check failed. Please try again or contact professor.");
-        exit(1);
-      }
-      puts(server_reply);
-      //An extra breaking condition can be added here (to terminate the while loop)
+  send(socketFileDescriptor, message, strlen(message), 0);
+  if( recv(socketFileDescriptor , server_reply , 2000 , 0) < 0)
+  {
+    puts("Your attendance check failed. Please try again or contact professor.");
+    exit(1);
+  }
+  puts(server_reply);
 
 
 }
