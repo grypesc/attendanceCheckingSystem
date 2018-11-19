@@ -1,14 +1,14 @@
-#include <sys/socket.h> //For Sockets
-#include <netinet/in.h> //For the AF_INET (Address Family)
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <time.h>
-#include <sys/time.h> // for clock_gettime()
 #include <unistd.h>
-#include<pthread.h>
+#include <pthread.h>
+#include <signal.h>
+#include <semaphore.h>
 
 #define MAXNAME 30
 
@@ -19,7 +19,8 @@ struct Node {
 };
 
 struct Node *head = NULL;
-
+struct sockaddr_in clientAddr;
+sem_t mutex;
 
 void addToList(char data[]) {
 
@@ -91,64 +92,19 @@ int saveList() {
     i++;
   }
   fclose(fd);
+};
+
+void alert() {
+  puts("Time is up, attendance system is shutting down. Attendance list was saved.");
+  saveList();
+  exit(1);
 }
 
+void *threadBody(void *socket_desc) {
 
-
-int main()
-{
-  struct sockaddr_in server; //This is our main socket variable.
-  int socketFileDescriptor; //This is the socket file descriptor that will be used to identify the socket
-  int client_sock; //This is the connection file descriptor that will be used to distinguish client connections.
-  char message[100] = ""; //This array will store the messages that are sent by the serverer
-  char messageToClient[35] = "Your attendance check is completed";
-  char messageToClientFailed[50] = "You are too late, attendance  check is down";
-
-  server.sin_family = AF_INET;
-  server.sin_port = htons(8096); //Define the port at which the serverer will listen for connections.
-  server.sin_addr.s_addr = INADDR_ANY;
-
-  socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0); //This will create a new socket and also return the identifier of the socket into socketFileDescriptor.
-  void *threadBody(void *);
-  // To handle errors, you can add an if condition that checks whether socketFileDescriptor is greater than 0. If it isn't, prompt an error
-
-  bind(socketFileDescriptor, (struct sockaddr *)&server, sizeof(server)); //assigns the address specified by server to the socket
-
-  listen(socketFileDescriptor,5); //Listen for client connections. Maximum 5 connections will be permitted.
-
-  //Now we start handling the connections.
-  struct sockaddr_in clientAddr;
-  socklen_t slen = sizeof(clientAddr);
-
-  struct timeval start, end;
-  long secs_used,micros_used;
-  pthread_t thread_id;
-
-  //sleep(1);
-  puts ("Attendance check has started and will last 10 minutes");
-
-
-  gettimeofday(&start, NULL);
-  while(client_sock = accept(socketFileDescriptor, (struct sockaddr *)&clientAddr, &slen )) {
-
-    if( pthread_create( &thread_id , NULL ,  threadBody , (void*) &client_sock) < 0)
-    {
-      perror("Failed to create a thread");
-      return 1;
-    }
-
-
-
-  }
-}
-
-void *threadBody(void *socket_desc)
-{
-  //Get the socket descriptor
   int sock = *(int*)socket_desc;
   char message[100];
 
-  //Receive a message from client
   recv(sock, message, 100, 0);
   if (strlen(message)<=5) {
     puts("Client prompted wrong input");
@@ -156,13 +112,86 @@ void *threadBody(void *socket_desc)
     write(sock , message , strlen(message));
     pthread_exit(NULL);
   }
-
+  printf("Attendance request received from %s::%d, name: %s\n", inet_ntoa(clientAddr.sin_addr), (int) ntohs(clientAddr.sin_port), message);
+  sem_wait(&mutex);
   addToList(message);
   printList();
-  //Send a message from client
+  sem_post(&mutex);
+
   memset(message, 0, 100);
   strcpy(message, "Your attendance check is succesful");
   write(sock , message , strlen(message));
-
   pthread_exit(NULL);
+}
+
+void handleInterruption(int signalType) {
+  saveList();
+  puts("\nAttendance list was saved, exiting server.");
+  exit(0);
+}
+
+
+int main(int argc, char *argv[]) {
+  if (argc!=2) {
+    puts ("Program parameters: <Port number>");
+    exit(1);
+  }
+  int portNumber = atoi(argv[1]);
+
+  struct sigaction signalHandler;
+  signalHandler.sa_handler = handleInterruption;
+  sigfillset(&signalHandler.sa_mask);
+  signalHandler.sa_flags = 0;
+  if (sigaction(SIGINT, &signalHandler, 0) < 0) {
+    puts ("Failed to SIGINT, line 112");
+    exit(1);
+  }
+
+
+  struct sockaddr_in server;
+  int socketFileDescriptor;
+  int clientDescriptor;
+  char message[100] = "";
+
+  server.sin_family = AF_INET;
+  server.sin_port = htons(portNumber);
+  server.sin_addr.s_addr = INADDR_ANY;
+
+  char ip[INET_ADDRSTRLEN];
+  inet_ntop(AF_INET, &server.sin_addr, ip, INET_ADDRSTRLEN);
+
+
+
+  socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+
+  bind(socketFileDescriptor, (struct sockaddr *)&server, sizeof(server));
+
+  listen(socketFileDescriptor,5);
+
+  socklen_t slen = sizeof(clientAddr);
+
+  struct timeval start, end;
+  pthread_t thread_id;
+
+  printf("Attendance system is on, server address is %s with a port %d\n", ip, portNumber);
+
+  srand(time(NULL));
+  int sleepTime = rand()%5+5;
+  printf("Attendance checking will begin in %d seconds\n", sleepTime);
+  sleep(sleepTime);
+
+  int durationTime = 600;
+  printf ("Attendance check has started and will last %d seconds\n", durationTime);
+
+  signal(SIGALRM, alert);
+  alarm(durationTime);
+  sem_post(&mutex);
+  while(clientDescriptor = accept(socketFileDescriptor, (struct sockaddr *)&clientAddr, &slen )) {
+
+    if( pthread_create( &thread_id , NULL ,  threadBody , (void*) &clientDescriptor) < 0)
+    {
+      perror("Failed to create a thread");
+      return 1;
+    }
+  }
 }

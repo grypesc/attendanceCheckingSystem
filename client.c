@@ -1,5 +1,5 @@
-#include <sys/socket.h> //For Sockets
-#include <netinet/in.h> //For the AF_INET (Address Family)
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,8 +8,7 @@
 #define MAXNAME 30
 
 
-int checkName(char data[])
-{
+int checkName(char data[]) {
   char c = data[0];
   int i=0;
   while (c != ' ' && i<MAXNAME)
@@ -30,23 +29,29 @@ int checkName(char data[])
 }
 
 
-int main()
-{
+int main(int argc, char *argv[]) {
+  if (argc!=3) {
+    puts ("Program parameters: <Server adress> <port number>");
+    exit(1);
+  }
 
-  struct sockaddr_in server; //This is our main socket variable.
-  int socketFileDescriptor; //This is the socket file descriptor that will be used to identify the socket
-  int conn; //This is the connection file descriptor that will be used to distinguish client connections.
-  char message[100] = ""; //This array will store the messages that are sent by the serverer
+  char* ipAdress = argv[1];
+  int portNumber = atoi(argv[2]);
+
+  struct sockaddr_in server;
+  int socketFileDescriptor;
+  int conn;
+  char message[100] = "";
   memset(message, '\0', 100);
   char server_reply[2000];
   socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
 
   server.sin_family = AF_INET;
-  server.sin_port = htons(8096);
+  server.sin_port = htons(portNumber);
   //
-  inet_pton(AF_INET, "127.0.0.1", &server.sin_addr); //This binds the client to localhost
+  inet_pton(AF_INET, ipAdress, &server.sin_addr); //Bind the client to server
 
-  if (connect(socketFileDescriptor, (struct sockaddr *)&server, sizeof(server))!=0) { //This connects the client to the serverer.
+  if (connect(socketFileDescriptor, (struct sockaddr *)&server, sizeof(server))!=0) {
     puts("Failed to connect to server");
     exit(0);
   }
@@ -63,6 +68,5 @@ int main()
     exit(1);
   }
   puts(server_reply);
-
-
+  return 0;
 }
