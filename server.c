@@ -11,6 +11,7 @@
 #include <semaphore.h>
 
 #define MAXNAME 30
+#define ACCEPTINGTIME 600
 
 struct Node {
   char name[MAXNAME];
@@ -25,8 +26,6 @@ sem_t mutex;
 void addToList(char data[]) {
 
   struct Node *new = malloc(sizeof(struct Node));
-
-
   char c = data[0];
   int i=0;
   while (c != ' ' && i<MAXNAME)
@@ -71,7 +70,7 @@ void printList() {
   printf("\n");
 }
 
-int saveList() {
+void saveList() {
   FILE *fd;
   fd = fopen("attendanceList.txt", "w");
   fprintf(fd, "no. Name                           Surname\n");
@@ -160,7 +159,12 @@ int main(int argc, char *argv[]) {
   char ip[INET_ADDRSTRLEN];
   inet_ntop(AF_INET, &server.sin_addr, ip, INET_ADDRSTRLEN);
 
+  printf("Attendance system is on, server address is %s with a port %d\n", ip, portNumber);
 
+  srand(time(NULL));
+  int sleepTime = rand()%5+5;
+  printf("Attendance checking will begin in %d seconds\n", sleepTime);
+  sleep(sleepTime);
 
   socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -170,21 +174,12 @@ int main(int argc, char *argv[]) {
 
   socklen_t slen = sizeof(clientAddr);
 
-  struct timeval start, end;
   pthread_t thread_id;
 
-  printf("Attendance system is on, server address is %s with a port %d\n", ip, portNumber);
-
-  srand(time(NULL));
-  int sleepTime = rand()%5+5;
-  printf("Attendance checking will begin in %d seconds\n", sleepTime);
-  sleep(sleepTime);
-
-  int durationTime = 600;
-  printf ("Attendance check has started and will last %d seconds\n", durationTime);
+  printf ("Attendance check has started and will last %d seconds\n", ACCEPTINGTIME);
 
   signal(SIGALRM, alert);
-  alarm(durationTime);
+  alarm(ACCEPTINGTIME);
   sem_post(&mutex);
   while(clientDescriptor = accept(socketFileDescriptor, (struct sockaddr *)&clientAddr, &slen )) {
 

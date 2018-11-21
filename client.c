@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
   int conn;
   char message[100] = "";
   memset(message, '\0', 100);
-  char server_reply[2000];
+  char server_reply[100];
   socketFileDescriptor = socket(AF_INET, SOCK_STREAM, 0);
 
   server.sin_family = AF_INET;
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
   } while (checkName(message) != 0 );
 
   send(socketFileDescriptor, message, strlen(message), 0);
-  if( recv(socketFileDescriptor , server_reply , 2000 , 0) < 0)
+  if( recv(socketFileDescriptor , server_reply , 100 , 0) < 0)
   {
     puts("Your attendance check failed. Please try again or contact professor.");
     exit(1);
